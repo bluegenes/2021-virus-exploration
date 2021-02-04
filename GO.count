@@ -1,4 +1,4 @@
 #conda activate sourmash_dev
 
-#python count-hashes.py /group/ctbrowngrp/virus-references/pigeon/dna-input/signatures/pigeon1.0.sig pigeon1.0.stats.csv --fastafile /group/ctbrowngrp/virus-references/pigeon/PIGEONv1.0.fa.gz
-python count-hashes.py /group/ctbrowngrp/virus-references/pigeon/dna-input/signatures/pigeon1.0.sig pigeon1.0.stats.csv --fastafile /group/ctbrowngrp/virus-references/pigeon/PIGEONv1.0.head50000.fa
+python count-hashes.py /group/ctbrowngrp/virus-references/pigeon/dna-input/signatures/pigeon1.0.sig pigeon1.0.stats.csv --fastafile /group/ctbrowngrp/virus-references/pigeon/PIGEONv1.0.fa.gz
+#python count-hashes.py /group/ctbrowngrp/virus-references/pigeon/dna-input/signatures/pigeon1.0.sig pigeon1.0.stats.csv --fastafile /group/ctbrowngrp/virus-references/pigeon/PIGEONv1.0.head50000.fa
