@@ -24,6 +24,15 @@ class Checkpoint_MakePattern:
             names = [ x.rstrip() for x in fp ]
         return names
 
+    def get_lengths(self):
+        # build global dictionary of genome lengths
+        global genome_lengths
+        with open(f'{out_dir}/fastasplit/{basename}.lengths.txt', 'rt') as fp:
+            genome_lengths = {}
+            for line in fp:
+                name, length = line.rstrip().split(',')
+                genome_lengths[name] = length
+
     def __call__(self, w):
         global checkpoints
 
@@ -31,6 +40,7 @@ class Checkpoint_MakePattern:
         # exception until that rule has been run.
         checkpoints.check_csv.get(**w)
 
+        self.get_lengths()
         names = self.get_names()
 
         pattern = expand(self.pattern, genome=names, **w)
@@ -48,6 +58,7 @@ rule split_fasta:
     output: 
         csv=os.path.join(out_dir, "{name}.fastasplit.csv"),
         names=os.path.join(out_dir, "fastasplit", "{name}.names.txt"),
+        lengths=os.path.join(out_dir, "fastasplit", "{name}.lengths.txt"),
     params:
         outdir = os.path.join(out_dir, "fastasplit"),
     log: os.path.join(logs_dir, "{name}.fastasplit.log")
@@ -61,18 +72,25 @@ rule split_fasta:
                --output-dir {params.outdir} \
                --output-csv {output.csv} \
                --prefix {wildcards.name} \
-               --output-names {output.names} > {log} 2>&1
+               --output-names {output.names} \
+               --output-lengths {output.lengths} > {log} 2>&1
         """
 
 checkpoint check_csv:
     input: 
-        os.path.join(out_dir, "fastasplit", f"{basename}.names.txt"),
-        #rules.split_fasta.output.names
+        names=os.path.join(out_dir, "fastasplit", f"{basename}.names.txt"),
+        lengths=os.path.join(out_dir, "fastasplit", f"{basename}.lengths.txt"),
     output: touch(f"{out_dir}/.make_spreadsheet.touch")
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=120,
 
+def check_length(genome):
+    # prodigal single mode fails if the sequence is less than 20kb. use meta instead
+    genome_len = int(genome_lengths[genome])
+    if genome_len < 20000:
+        return " -p meta "
+    return " -p single "
 
 rule prodigal_translate:
     input:
@@ -81,6 +99,8 @@ rule prodigal_translate:
         gff=os.path.join(out_dir, "prodigal", "{name}-{genome}.genes.gff3"),
         proteins=os.path.join(out_dir, "prodigal", "{name}-{genome}.proteins.fasta"),
         #stats=os.path.join(out_dir, "prodigal", "{name}-{genome}.stats.txt")
+    params:
+        predict_type_cmd = lambda w: check_length(w.genome)
     log:
         os.path.join(logs_dir, "prodigal","{name}-{genome}.prodigal.log")
     benchmark:
@@ -93,7 +113,7 @@ rule prodigal_translate:
     shell:
         """
         prodigal -i {input} -o {output.gff} -a {output.proteins} \
-                  -f "gff" > {log} 2>&1
+                  -f "gff" {params.predict_type_cmd} > {log} 2>&1
         """
         # --summ_file {output.stats}
 

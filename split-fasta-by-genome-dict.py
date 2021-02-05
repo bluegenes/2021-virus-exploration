@@ -30,6 +30,8 @@ def main(args):
 
     if args.output_names:
         names = open(args.output_names, "w")
+    if args.output_lengths:
+        lengths = open(args.output_lengths, "w")
     with open(args.output_csv, "w") as outcsv:
         outcsv.write("accession,filename\n")
         filenum=0
@@ -40,13 +42,19 @@ def main(args):
             if args.output_names:
                 names.write(f"{name}\n")
             with open(outfile, "w") as out:
+                name_length=0
                 for record in records:
+                    name_length+=len(record.sequence)
                     out.write(f">{record.name}\n{record.sequence}\n")
+                if args.output_lengths:
+                    lengths.write(f"{name},{name_length}\n")
 
     print(f"{str(n)} contigs written to {str(filenum)} group fasta files\n")
 
     if args.output_names:
         names.close()
+    if args.output_lengths:
+        lengths.close()
 
 
 def cmdline(sys_args):
@@ -56,6 +64,7 @@ def cmdline(sys_args):
     p.add_argument("--output-dir", default= "")
     p.add_argument("--output-csv", required=True)
     p.add_argument("--output-names")
+    p.add_argument("--output-lengths")
     p.add_argument("--prefix")
     args = p.parse_args()
     return main(args)

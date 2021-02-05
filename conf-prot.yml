@@ -1,5 +1,6 @@
 # location for all generated files
 output_dir: output.protein-pigeon
+#output_dir: output.protein-pigeon-test
 
 basename: pigeon1.0
 
