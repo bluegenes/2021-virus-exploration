@@ -69,6 +69,9 @@ checkpoint check_csv:
         os.path.join(out_dir, "fastasplit", f"{basename}.names.txt"),
         #rules.split_fasta.output.names
     output: touch(f"{out_dir}/.make_spreadsheet.touch")
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *10000,
+        runtime=120,
 
 
 rule prodigal_translate:
