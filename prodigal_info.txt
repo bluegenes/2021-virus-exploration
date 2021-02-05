@@ -1,0 +1,6 @@
+# Prodigal - Virus info/considerations
+
+- [advice by input type](https://github.com/hyattpd/prodigal/wiki/advice-by-input-type)
+    - We have never extensively examined exactly how much sequence Prodigal requires in order to produce good results. It is our general feeling that 20kbp-100kbp is too short to gather enough statistics to predict genes well, but we have no actual data to support this claim. If you feel comfortable running 50kbp sequences in normal mode, and you're happy with the results you're getting, then, by all means, continue to do so. Start sites, especially, require a lot of data (100kbp may only be ~80 or so start sites in the training set, since Prodigal only trains on the starts of longer ORFs). We recommend 500kbp+ to get ideal 5' predictions, although this is likely on the conservative side. If your sequence is in this nebulous range (20kbp to 100kbp for 3' predictions, 100kbp to 500kbp for 5' predictions), you may try running both normal and anonymous mode and manually inspecting the results for any differences. 
+    - Prodigal contains no special routines to deal with viruses. As such, it cannot handle certain phenomena that occur sometimes in viruses, such as translational frame shifts. Viruses should generally be analyzed as above, with short genomes analyzed in anonymous mode and longer ones in normal mode.
+
