@@ -28,6 +28,8 @@ def main(args):
         name = record.name.split("|")[0]
         groupD[name].append(record)
 
+    if args.output_names:
+        names = open(args.output_names, "w")
     with open(args.output_csv, "w") as outcsv:
         outcsv.write("accession,filename\n")
         filenum=0
@@ -35,11 +37,16 @@ def main(args):
             filenum+=1
             outfile = os.path.join(args.output_dir, f"{prefix}{name}.fa")
             outcsv.write(f"{name},{outfile}\n")
+            if args.output_names:
+                names.write(f"{name}\n")
             with open(outfile, "w") as out:
                 for record in records:
                     out.write(f">{record.name}\n{record.sequence}\n")
 
     print(f"{str(n)} contigs written to {str(filenum)} group fasta files\n")
+
+    if args.output_names:
+        names.close()
 
 
 def cmdline(sys_args):
@@ -48,6 +55,7 @@ def cmdline(sys_args):
     p.add_argument("fasta")
     p.add_argument("--output-dir", default= "")
     p.add_argument("--output-csv", required=True)
+    p.add_argument("--output-names")
     p.add_argument("--prefix")
     args = p.parse_args()
     return main(args)

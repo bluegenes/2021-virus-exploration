@@ -1,0 +1,24 @@
+# location for all generated files
+output_dir: output.protein-pigeon
+
+basename: pigeon1.0
+
+genomes_fasta: /group/ctbrowngrp/virus-references/pigeon/PIGEONv1.0.fa.gz
+#genomes_fasta: /group/ctbrowngrp/virus-references/pigeon/PIGEONv1.0.head50000.fa # test set
+
+alphabet_info:
+  protein:
+    ksizes: [7,8,9,10,11,12]
+    scaled: [100]
+    alpha_cmd: "--protein"
+    moltype: "protein"
+  dayhoff:
+    ksizes: [15,16,17,18,19]
+    scaled: [100]
+    alpha_cmd: "--dayhoff"
+    moltype: "dayhoff"
+  hp:
+    ksizes: [33,35,37,39,42]
+    scaled: [100]
+    alpha_cmd: "--hp"
+    moltype: "hp"
