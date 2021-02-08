@@ -13,7 +13,6 @@ def main(args):
     records = screed.open(args.fastafile)
     seqlens = defaultdict(int)
     for record in records:
-        import pdb;pdb.set_trace()
         record_len = len(record.sequence)
         seqlens[record_len]+=1
     lenDF = pd.Series(seqlens).to_frame().reset_index()

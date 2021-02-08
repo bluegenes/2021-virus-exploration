@@ -88,7 +88,7 @@ checkpoint check_csv:
 def check_length(genome):
     # prodigal single mode fails if the sequence is less than 20kb. use meta instead
     genome_len = int(genome_lengths[genome])
-    if genome_len < 20000:
+    if genome_len < 100000:
         return " -p meta "
     return " -p single "
 
@@ -107,7 +107,7 @@ rule prodigal_translate:
         os.path.join(logs_dir, "prodigal","{name}-{genome}.prodigal.benchmark")
     threads: 1
     resources:
-        mem_mb=lambda wildcards, attempt: attempt *2000,
+        mem_mb=lambda wildcards, attempt: attempt *5000,
         runtime=120,
     conda: "envs/prodigal-env.yml"
     shell:
