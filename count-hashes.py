@@ -32,7 +32,7 @@ def main(args):
     sigInfoList = []
     for sig in sigs:
         # get signature information
-        name = sig.name
+        name = str(sig)
         print(f"Working on {name}")
         ksize = sig.minhash.ksize
         scaled = sig.minhash.scaled
