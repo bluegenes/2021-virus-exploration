@@ -7,8 +7,14 @@ mamba env create --file environment.yml
 ```
 *use conda if you don't have mamba installed*
 
-2. To count hashes in sigfiles:
+2. Activate `virus-smash` env:
 
 ```
-source GO.count
+conda activate virus-smash
+```
+
+3. To count hashes in sigfiles:
+
+```
+source count-hashes.sh
 ```
