@@ -35,8 +35,8 @@ def main(args):
     elif args.fastafile:
         genome_lengths = find_genome_lengths_single(args.fastafile)
 
-
-    sigfiles = [x.rstrip() for x in open(args.siglist)]
+    # load file list of sigs
+    sigfiles = sourmash.sourmash_args.load_file_list_of_signatures(args.siglist)
     sigInfoList = []
     for sigF in sigfiles:
         # load sigs from each sigfile
