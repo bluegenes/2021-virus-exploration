@@ -62,6 +62,7 @@ def main(args):
                 # store signature info
                 num_hashes = len(sig.minhash.downsample(scaled=sc).hashes)
                 sigInfoList.append(SigInfo(name=name, ksize=ksize, scaled=sc, num_hashes=num_hashes, genome_length=genome_len))
+        print("total number sigs processed: {n}")
 
     # convert signature info to pandas dataframe
     sigInfoDF = pd.DataFrame.from_records(sigInfoList, columns = SigInfo._fields)
