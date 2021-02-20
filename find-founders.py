@@ -12,6 +12,8 @@ Authors:
 
 This code is under CC0.
 """
+    # this script is really about using a greedy alg to find a set of founders. We need to re-map all to founders after this
+    # (to get best matches, not just first matches), so all we really need is the list of founder sigs
 import sys
 import argparse
 import random
@@ -19,7 +21,6 @@ import csv
 from collections import defaultdict, namedtuple
 
 import sourmash
-#from sourmash import load_file_as_signatures #, load_file_list_of_signatures
 from sourmash.logging import notify
 
 def load_sigs_from_list(siglistfiles, moltype, ksize):
@@ -55,7 +56,6 @@ def max_containment(sigA, sigB):
     return max(c1,c2)
 
 
-#def cluster_to_founders(founders, query_sigs, clusterInfo, cluster_summary, batch_n, pass_n):
 def cluster_to_founders(founders, siglist, batch_n, pass_n):
     # assign sigs to clusters via max containment to founder genomes
     notify(f'Attempting to cluster sigs to {len(founders)} current founders (pass {pass_n+1})')
@@ -64,29 +64,20 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n):
         leftover = []
         for (sig_from, sig) in siglist:
             maxcontain = max_containment(sig, founder)
-            #if sig.similarity(founder) >= args.threshold:
             if not maxcontain >= args.threshold:
-                #clusterInfo[founder].append((sig_from, sig))
-                #cluster.append((sig_from, sig))
-                #cluster_summary.append((sig_from, sig, batch_n, pass_n, 'member'))
-            #else:
                 leftover.append((sig_from, sig))
-        #if cluster:
             else:
                 notify(f'clustered {str(sig)} signature(s) with founder sig {str(founder)[:30]}...')
-            #notify(f'clustered {len(cluster)} signature(s) with founder sig {str(founder)[:30]}...')
-            #clusterInfo[str(founder)].extend(cluster)
-        #else:
-        #    notify(f'No new members for cluster from founder sig {str(founder)[:30]}...')
         siglist = leftover
-        print(len(leftover))
+        remaining = len(leftover)
+
+        if remaining % 1000 == 0:
+            print(f"{remaining} sigs left in this pass {pass_n+1}")
 
     notify(f'{len(siglist)} signature(s) could not be assigned to existing clusters')
-    #return siglist, clusterInfo, cluster_summary
     return siglist
 
 
-#def get_new_founders_via_uniqify(siglist, clusterInfo, batch_n, pass_n):
 def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
     '''
     use sourmash_uniqify code to build a new set of founders
@@ -99,47 +90,22 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
         # make the first one a founder; try to find matches; repeat.
         (founder_from, founder) = siglist.pop()
         new_founders.append((founder_from, founder))
-        #cluster_summary.append((founder_from, founder, batch_n, uniqify_pass_n, 'founder'))
 
         cluster = []
         leftover = []
         for (sig_from, sig) in siglist:
             maxcontain = max_containment(sig, founder)
             if not maxcontain >= args.threshold:
-            #if sig.similarity(founder) >= args.threshold:
-                #cluster.append((sig_from, sig))
-                #cluster_summary.append((sig_from, sig, batch_n, uniqify_pass_n, 'member'))
-            #else:
                 leftover.append((sig_from, sig))
             else:
                 notify(f'clustering {str(sig)} with founder sig {str(founder)[:30]}...')
-
-        #if cluster:
-            #notify(f'clustered {len(cluster)} signature(s) with founder sig {str(founder)[:30]}...')
-            #clusterInfo[str(founder)].extend(cluster)
-
-            #prefix = f'{args.prefix}.cluster.{pass_n}'
-            #with open(f'{prefix}.founder.sig', 'wt') as fp:
-            #    sourmash.save_signatures([founder], fp)
-            #with open(f'{prefix}.cluster.sig', 'wt') as fp:
-            #    cluster_sigs = [ x[1] for x in cluster ]
-            #    sourmash.save_signatures(cluster_sigs, fp)
-
-            #print(f'saved founder and {len(cluster)} signatures to {prefix}.*')
-        #else:
-        #    notify(f'founder sig {str(founder)[:30]}... is a singleton.')
-
-            #prefix = f'{args.prefix}.cluster.{pass_n}'
-            #with open(f'{prefix}.founder.sig', 'wt') as fp:
-            #    sourmash.save_signatures([founder], fp)
-            #print(f'saved singleton signature to {prefix}.*')
 
         siglist = leftover
         rarefaction[batch_n].append(len(new_founders))
         #pass_n += 1
         uniqify_pass_n += 1
 
-    return new_founders, rarefaction#, clusterInfo, cluster_summary
+    return new_founders, rarefaction
 
 
 def main(args):
@@ -157,8 +123,7 @@ def main(args):
     random.seed(args.seed)
     random.shuffle(siglist)
 
-    cluster_summary, founders = [],[]
-    clusterInfo = defaultdict(list)
+    founders = []
     rarefactionD = defaultdict(list)
     batch_n=0
     pass_n=0
@@ -174,32 +139,24 @@ def main(args):
                 founder_files.append(row["filename"])
         # load in cluster sigs
         founders = load_sigs(founder_files, args.moltype, args.ksize, source_type="seed cluster founders")
-        #siglist, clusterInfo, cluster_summary = cluster_to_founders(founders, siglist, clusterInfo, cluster_summary, batch_n, pass_n)
-        siglist  = cluster_to_founders(founders, siglist, batch_n, pass_n) #clusterInfo, cluster_summary, batch_n, pass_n)
+        siglist  = cluster_to_founders(founders, siglist, batch_n, pass_n)
         pass_n+=1
 
     while siglist:
        # if unassigned sigs, uniqify to get new founders
-       #new_founders, clusterInfo, cluster_summary = get_new_founders_via_uniqify(siglist[:batch_size], clusterInfo, cluster_summary, batch_n, pass_n)
-       new_founders, rarefactionD  = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n, rarefactionD) #, clusterInfo, cluster_summary, batch_n, pass_n)
+       new_founders, rarefactionD  = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n, rarefactionD)
        founders += new_founders
        batch_n+=1
        # cluster all sigs to full list of founders
-       #siglist, clusterInfo, cluster_summary = cluster_to_founders(founders, siglist, clusterInfo, cluster_summary, batch_n, pass_n)
-       siglist  = cluster_to_founders(founders, siglist, batch_n, pass_n) #, clusterInfo, cluster_summary, batch_n, pass_n)
+       siglist  = cluster_to_founders(founders, siglist, batch_n, pass_n)
        pass_n +=1
 
-
-
-    # this script is really about using a greedy alg to find a set of founders. We need to re-map all to founders after this
-    # (to get best matches, not just first matches), so all we really need is the list of founder sigs
 
     # write all founders
     prefix = args.prefix
     with open(f'{prefix}.founders.siglist', 'wt') as fp:
         for (founder_from, founder) in founders:
             fp.write(founder_from + "\n")
-        #sourmash.save_signatures([founder], fp)
 
     # write output summary spreadsheet
     #headers = ['origin_path', 'name', 'filename', 'md5sum', 'cluster', 'member_type']
