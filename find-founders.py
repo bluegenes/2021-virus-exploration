@@ -63,7 +63,6 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
     # assign sigs to clusters via max containment to founder genomes
     notify(f'Attempting to cluster sigs to {len(founders)} current founders (pass {pass_n+1})')
     for (founder_from, founder) in founders:
-        cluster = []
         leftover = []
         cluster_n = 0
         for (sig_from, sig) in siglist:
@@ -102,7 +101,6 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
         (founder_from, founder) = siglist.pop()
         new_founders.append((founder_from, founder))
 
-        cluster = []
         leftover = []
         cluster_n = 0
         for (sig_from, sig) in siglist:
@@ -111,13 +109,11 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
                 leftover.append((sig_from, sig))
             else:
                 new_members.append((sig_from, sig))
-                #notify(f'clustering {str(sig)} with founder sig {str(founder)[:30]}...')
                 cluster_n +=1
         if cluster_n:
             notify(f'clustered {str(cluster_n)} signature(s) with founder sig {str(founder)[:30]}...')
 
         siglist = leftover
-        #pass_n += 1
         uniqify_pass_n += 1
 
     return new_founders, new_members
