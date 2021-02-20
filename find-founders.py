@@ -85,9 +85,6 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
         if leftover:
             siglist = leftover
             remaining = len(leftover)
-
-            if remaining % 1000 == 0:
-                print(f"{remaining} sigs left in this pass {pass_n+1}")
         else:
             break
 
@@ -179,9 +176,15 @@ def main(args):
     with open(f'{prefix}.founders.siglist.txt', 'wt') as fp:
         for (founder_from, founder) in founders:
             fp.write(founder_from + "\n")
+    with open(f'{prefix}.founders.siglist.csv', 'wt') as fp:
+        for (founder_from, founder) in founders:
+            fp.write(f"{str(founder)},{founder_from}\n")
     with open(f'{prefix}.members.siglist.txt', 'wt') as fp:
         for (member_from, member) in members:
             fp.write(member_from + "\n")
+    with open(f'{prefix}.members.siglist.csv', 'wt') as fp:
+        for (member_from, member) in members:
+            fp.write(f"{str(member)},{member_from}\n")
 
 
 if __name__ == '__main__':
