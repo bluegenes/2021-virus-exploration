@@ -60,8 +60,12 @@ def max_containment(sigA, sigB):
 
 
 def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
+    # splitting this out here may not be useful when single threaded, BUT
+    # seems like it would be useful to split batches of remaining sigs, map to this batch of founders
+    # then return lists that can be added to founders, members!
+
     # assign sigs to clusters via max containment to founder genomes
-    notify(f'Attempting to cluster sigs to {len(founders)} current founders (pass {pass_n+1})')
+    notify(f'Attempting to cluster sigs to {len(founders)} new founders (pass {pass_n+1})')
     for (founder_from, founder) in founders:
         leftover = []
         cluster_n = 0
@@ -91,12 +95,13 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
     '''
     use sourmash_uniqify code to build a new set of founders
     '''
+    batch_size = len(siglist)
     notify(f'Finding new cluster founders from batch {batch_n} ({len(siglist)} sigs)')
     uniqify_pass_n = 0
     new_founders, new_members = [],[]
     while len(siglist):
         if uniqify_pass_n % 500 == 0:
-            notify(f'batch {batch_n}: starting pass {uniqify_pass_n+1}')
+            notify(f'batch {batch_n}: starting pass {uniqify_pass_n+1}. {str(len(siglist))}/{str(batch_size)} sigs remaining')
         # make the first one a founder; try to find matches; repeat.
         (founder_from, founder) = siglist.pop()
         new_founders.append((founder_from, founder))
@@ -159,8 +164,9 @@ def main(args):
        members += new_members
        siglist = siglist[batch_size:]
        batch_n+=1
-       # cluster all sigs to full list of founders
-       siglist, members  = cluster_to_founders(founders, siglist, batch_n, pass_n, members)
+       # cluster all sigs to list of new founders
+       #siglist, members  = cluster_to_founders(founders, siglist, batch_n, pass_n, members)
+       siglist, members  = cluster_to_founders(new_founders, siglist, batch_n, pass_n, members)
        pass_n +=1
 
 
@@ -182,7 +188,7 @@ if __name__ == '__main__':
     p.add_argument('-k', '--ksize', type=int, default=31)
     p.add_argument('--moltype', default='DNA')
     p.add_argument('--seed', type=int, default=1)
-    p.add_argument('--threshold', type=float, default=0.1) # 0.2
+    p.add_argument('--threshold', type=float, default=0.05) # 0.2
     p.add_argument('--seed-cluster-csv')
     p.add_argument('--batch-size', type=int, default=5000)
     p.add_argument('--prefix', default='cluster',
