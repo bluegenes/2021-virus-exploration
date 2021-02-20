@@ -85,7 +85,7 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
     return siglist, members
 
 
-def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
+def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
     '''
     use sourmash_uniqify code to build a new set of founders
     '''
@@ -109,11 +109,10 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
                 notify(f'clustering {str(sig)} with founder sig {str(founder)[:30]}...')
 
         siglist = leftover
-        rarefaction[batch_n].append(len(new_founders))
         #pass_n += 1
         uniqify_pass_n += 1
 
-    return new_founders, rarefaction, new_members
+    return new_founders, new_members
 
 
 def main(args):
@@ -132,7 +131,6 @@ def main(args):
     random.shuffle(siglist)
 
     founders, members = [],[]
-    rarefactionD = defaultdict(list)
     batch_n=0
     pass_n=0
     #if existing clusters, map to them first
@@ -152,7 +150,7 @@ def main(args):
 
     while siglist:
        # if unassigned sigs, uniqify to get new founders
-       new_founders, rarefactionD, new_members = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n, rarefactionD)
+       new_founders, new_members = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n)
        founders += new_founders
        members += new_members
        siglist = siglist[batch_size:]
