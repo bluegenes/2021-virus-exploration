@@ -1,19 +1,22 @@
 #! /usr/bin/env python
 """
-Uses @ctb's sourmash-uniqify + maximum containment assessement to perform
-iterative, greedy clustering of a pile of sourmash signatures.
+find-founders.py uses @ctb's sourmash-uniqify logic to perform iterative,
+greedy clustering of a pile of sourmash signatures.
 
 sourmash-uniqify is a practical alternative to a more principled clustering; see
 https://github.com/ctb/2017-sourmash-cluster
 
+The main goal here is just to obtain a set of cluster founders using iterative
+`sourmash-uniqify` batches and similarity assessment. The list of non-founder ("member")
+signatures can then be searched against all founder sigs to obtain the best cluster
+placement for each member sig.
+
 Authors:
-  - C. Titus Brown, github.com/ctb/, titus@idyll.org
   - N. Tessa Pierce Ward, github.com/bluegenes, ntpierce@gmail.com
+  - C. Titus Brown, github.com/ctb/, titus@idyll.org
 
 This code is under CC0.
 """
-    # this script is really about using a greedy alg to find a set of founders. We need to re-map all to founders after this
-    # (to get best matches, not just first matches), so all we really need is the list of founder sigs
 import sys
 import argparse
 import random
@@ -56,7 +59,7 @@ def max_containment(sigA, sigB):
     return max(c1,c2)
 
 
-def cluster_to_founders(founders, siglist, batch_n, pass_n):
+def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
     # assign sigs to clusters via max containment to founder genomes
     notify(f'Attempting to cluster sigs to {len(founders)} current founders (pass {pass_n+1})')
     for (founder_from, founder) in founders:
@@ -67,15 +70,19 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n):
             if not maxcontain >= args.threshold:
                 leftover.append((sig_from, sig))
             else:
+                members.append((sig_from, sig))
                 notify(f'clustered {str(sig)} signature(s) with founder sig {str(founder)[:30]}...')
-        siglist = leftover
-        remaining = len(leftover)
+        if leftover:
+            siglist = leftover
+            remaining = len(leftover)
 
-        if remaining % 1000 == 0:
-            print(f"{remaining} sigs left in this pass {pass_n+1}")
+            if remaining % 1000 == 0:
+                print(f"{remaining} sigs left in this pass {pass_n+1}")
+        else:
+            break
 
     notify(f'{len(siglist)} signature(s) could not be assigned to existing clusters')
-    return siglist
+    return siglist, members
 
 
 def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
@@ -84,7 +91,7 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
     '''
     notify(f'Finding new cluster founders from batch {batch_n} ({len(siglist)} sigs)')
     uniqify_pass_n = 0
-    new_founders = []
+    new_founders, new_members = [],[]
     while len(siglist):
         notify(f'batch {batch_n}: starting pass {uniqify_pass_n+1}')
         # make the first one a founder; try to find matches; repeat.
@@ -98,6 +105,7 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
             if not maxcontain >= args.threshold:
                 leftover.append((sig_from, sig))
             else:
+                new_members.append((sig_from, sig))
                 notify(f'clustering {str(sig)} with founder sig {str(founder)[:30]}...')
 
         siglist = leftover
@@ -105,7 +113,7 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n, rarefaction):
         #pass_n += 1
         uniqify_pass_n += 1
 
-    return new_founders, rarefaction
+    return new_founders, rarefaction, new_members
 
 
 def main(args):
@@ -123,7 +131,7 @@ def main(args):
     random.seed(args.seed)
     random.shuffle(siglist)
 
-    founders = []
+    founders, members = [],[]
     rarefactionD = defaultdict(list)
     batch_n=0
     pass_n=0
@@ -139,41 +147,29 @@ def main(args):
                 founder_files.append(row["filename"])
         # load in cluster sigs
         founders = load_sigs(founder_files, args.moltype, args.ksize, source_type="seed cluster founders")
-        siglist  = cluster_to_founders(founders, siglist, batch_n, pass_n)
+        siglist, members  = cluster_to_founders(founders, siglist, batch_n, pass_n, members)
         pass_n+=1
 
     while siglist:
        # if unassigned sigs, uniqify to get new founders
-       new_founders, rarefactionD  = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n, rarefactionD)
+       new_founders, rarefactionD, new_members = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n, rarefactionD)
        founders += new_founders
+       members += new_members
+       siglist = siglist[batch_size:]
        batch_n+=1
        # cluster all sigs to full list of founders
-       siglist  = cluster_to_founders(founders, siglist, batch_n, pass_n)
+       siglist, members  = cluster_to_founders(founders, siglist, batch_n, pass_n, members)
        pass_n +=1
 
 
-    # write all founders
+    # write all founders, members
     prefix = args.prefix
-    with open(f'{prefix}.founders.siglist', 'wt') as fp:
+    with open(f'{prefix}.founders.siglist.txt', 'wt') as fp:
         for (founder_from, founder) in founders:
             fp.write(founder_from + "\n")
-
-    # write output summary spreadsheet
-    #headers = ['origin_path', 'name', 'filename', 'md5sum', 'cluster', 'member_type']
-    #csv_name = f'{args.prefix}.summary.csv'
-
-    #with open(csv_name, 'wt') as fp:
-    #    w = csv.writer(fp)
-    #    w.writerow(headers)
-
-     #   for (origin_path, sig, cluster_n, member_type) in cluster_summary:
-     #       name = str(sig)
-     #       filename = sig.filename
-     #       md5sum = sig.md5sum()
-
-      #      w.writerow([origin_path, name, filename, md5sum, cluster_n, member_type])
-
-    #notify(f"wrote {len(cluster_summary)} entries to clustering summary at '{csv_name}'")
+    with open(f'{prefix}.members.siglist.txt', 'wt') as fp:
+        for (member_from, member) in members:
+            fp.write(member_from + "\n")
 
 
 if __name__ == '__main__':
