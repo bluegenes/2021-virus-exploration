@@ -65,13 +65,16 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
     for (founder_from, founder) in founders:
         cluster = []
         leftover = []
+        cluster_n = 0
         for (sig_from, sig) in siglist:
             maxcontain = max_containment(sig, founder)
             if not maxcontain >= args.threshold:
                 leftover.append((sig_from, sig))
             else:
                 members.append((sig_from, sig))
-                notify(f'clustered {str(sig)} signature(s) with founder sig {str(founder)[:30]}...')
+                cluster_n +=1
+        if cluster_n:
+            notify(f'clustered {str(cluster_n)} signature(s) with founder sig {str(founder)[:30]}...')
         if leftover:
             siglist = leftover
             remaining = len(leftover)
@@ -93,20 +96,25 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
     uniqify_pass_n = 0
     new_founders, new_members = [],[]
     while len(siglist):
-        notify(f'batch {batch_n}: starting pass {uniqify_pass_n+1}')
+        if uniqify_pass_n % 500 == 0:
+            notify(f'batch {batch_n}: starting pass {uniqify_pass_n+1}')
         # make the first one a founder; try to find matches; repeat.
         (founder_from, founder) = siglist.pop()
         new_founders.append((founder_from, founder))
 
         cluster = []
         leftover = []
+        cluster_n = 0
         for (sig_from, sig) in siglist:
             maxcontain = max_containment(sig, founder)
             if not maxcontain >= args.threshold:
                 leftover.append((sig_from, sig))
             else:
                 new_members.append((sig_from, sig))
-                notify(f'clustering {str(sig)} with founder sig {str(founder)[:30]}...')
+                #notify(f'clustering {str(sig)} with founder sig {str(founder)[:30]}...')
+                cluster_n +=1
+        if cluster_n:
+            notify(f'clustered {str(cluster_n)} signature(s) with founder sig {str(founder)[:30]}...')
 
         siglist = leftover
         #pass_n += 1
