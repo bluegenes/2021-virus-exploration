@@ -22,9 +22,12 @@ import argparse
 import random
 import csv
 from collections import defaultdict, namedtuple
+import pandas as pd
 
 import sourmash
 from sourmash.logging import notify
+
+rareInfo = namedtuple('RarefactionInfo','num_founders, num_members')
 
 def load_sigs_from_list(siglistfiles, moltype, ksize):
     # input lists of signatures instead
@@ -74,6 +77,9 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
         if n % 500 == 0:
             notify(f'batch {batch_n}: checking founder {n+1}/{str(batch_size)}. {str(len(siglist))}/{str(num_sigs)} sigs remaining')
         for (sig_from, sig) in siglist:
+            #if this signature is already in the founder list, ignore
+            if all([sig_from ==founder_from, founder==sig]):
+                continue
             maxcontain = max_containment(sig, founder)
             if not maxcontain >= args.threshold:
                 leftover.append((sig_from, sig))
@@ -82,8 +88,8 @@ def cluster_to_founders(founders, siglist, batch_n, pass_n, members):
                 cluster_n +=1
         if cluster_n:
             notify(f'    clustered {str(cluster_n)} signature(s) with founder sig {str(founder)[:30]}...')
-        if leftover:
-            siglist = leftover
+        siglist = leftover
+        if siglist:
             remaining = len(leftover)
         else:
             break
@@ -100,7 +106,7 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
     notify(f'Finding new cluster founders from batch {batch_n} ({len(siglist)} sigs)')
     uniqify_pass_n = 0
     new_founders, new_members = [],[]
-    while len(siglist):
+    while siglist:
         if uniqify_pass_n % 500 == 0:
             notify(f'batch {batch_n}: starting pass {uniqify_pass_n+1}. {str(len(siglist))}/{str(batch_size)} sigs remaining')
         # make the first one a founder; try to find matches; repeat.
@@ -110,6 +116,9 @@ def get_new_founders_via_uniqify(siglist, batch_n, pass_n):
         leftover = []
         cluster_n = 0
         for (sig_from, sig) in siglist:
+            #if this signature is already in the founder list, ignore
+            if all([sig_from ==founder_from, founder==sig]):
+                continue
             maxcontain = max_containment(sig, founder)
             if not maxcontain >= args.threshold:
                 leftover.append((sig_from, sig))
@@ -141,38 +150,38 @@ def main(args):
     random.shuffle(siglist)
 
     founders, members = [],[]
+    rarefaction_info=[]
     batch_n=0
     pass_n=0
     #if existing clusters, map to them first
-    if args.seed_cluster_csv:
-        notify(f'found existing input clusters.')
-        founder_files = []
-        # read in existing csv
-        cluster_csv = csv.reader(open(args.seed_cluster_csv, "rt"))
-        # grab 'filename' col from 'member_type' == "founder"
-        for row in cluster_csv:
-            if row["member_type"] == "founder":
-                founder_files.append(row["filename"])
-        # load in cluster sigs
-        founders = load_sigs(founder_files, args.moltype, args.ksize, source_type="seed cluster founders")
+    if args.existing_founders:
+        # read in existing txt file of founders
+        founders = list(set(load_sigs_from_list(args.existing_founders, args.moltype, args.ksize)))
+        notify(f'found existing input founders.')
         siglist, members  = cluster_to_founders(founders, siglist, batch_n, pass_n, members)
+        rarefaction_info.append(rareInfo(num_founders=len(founders), num_members=len(members)))
         pass_n+=1
 
     while siglist:
-       # if unassigned sigs, uniqify to get new founders
-       new_founders, new_members = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n)
-       founders += new_founders
-       members += new_members
-       siglist = siglist[batch_size:]
-       batch_n+=1
-       # cluster all sigs to list of new founders
-       #siglist, members  = cluster_to_founders(founders, siglist, batch_n, pass_n, members)
-       siglist, members  = cluster_to_founders(new_founders, siglist, batch_n, pass_n, members)
-       pass_n +=1
+        # if unassigned sigs, uniqify to get new founders
+        new_founders, new_members = get_new_founders_via_uniqify(siglist[:batch_size], batch_n, pass_n)
+        siglist = siglist[batch_size:]
+        founders += new_founders
+        members += new_members
+        batch_n+=1
+        # cluster all sigs to list of new founders
+        if siglist:
+            siglist, members = cluster_to_founders(new_founders, siglist, batch_n, pass_n, members)
+        rarefaction_info.append(rareInfo(num_founders=len(founders), num_members=len(members)))
+        pass_n +=1
 
 
     # write all founders, members
     prefix = args.prefix
+
+    rarefactionDF = pd.DataFrame.from_records(rarefaction_info, columns = rareInfo._fields)
+    rarefactionDF.to_csv(f'{prefix}.rarefaction.txt', index=False)
+
     with open(f'{prefix}.founders.siglist.txt', 'wt') as fp:
         for (founder_from, founder) in founders:
             fp.write(founder_from + "\n")
@@ -191,12 +200,12 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--signature_sources', nargs='*',
                    help='signature files, directories, and sourmash databases')
-    p.add_argument("--siglist",  action="append", help="provide list of signatures to assess")
+    p.add_argument("--siglist", action="append", help="provide list of signatures to assess")
     p.add_argument('-k', '--ksize', type=int, default=31)
     p.add_argument('--moltype', default='DNA')
     p.add_argument('--seed', type=int, default=1)
     p.add_argument('--threshold', type=float, default=0.05) # 0.2
-    p.add_argument('--seed-cluster-csv')
+    p.add_argument('--existing-founders', action="append", help="siglist of existing founders")
     p.add_argument('--batch-size', type=int, default=5000)
     p.add_argument('--prefix', default='cluster',
                    help='output filename prefix (can include directories)')
