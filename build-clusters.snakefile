@@ -6,32 +6,34 @@
 import os
 import pandas as pd
 
-configfile: "conf.yml"
+configfile: "conf-cluster.yml"
 out_dir = config["output_dir"]
 logs_dir = os.path.join(out_dir,"logs")
 
 basename = config.get("basename", "pigeon1.0")
-#genomes_fasta = config["genomes_fasta"]
-fasta_dir = config.get("fasta_dir", "")
+
+
 
 # to do: edits for this workflow
 class Checkpoint_MakePattern:
     def __init__(self, pattern):
         self.pattern = pattern
 
-    def get_names(self):
-        with open(f'{out_dir}/fastasplit/{basename}.names.txt', 'rt') as fp:
-            names = [ x.rstrip() for x in fp ]
-        return names
+    def get_member_names(self):
+        #with open(f'{out_dir}/fastasplit/{basename}.names.txt', 'rt') as fp:
+        #    names = [ x.rstrip() for x in fp ]
+        #return names
+        with open(f"os.path.join(out_dir, "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.members.siglist.txt") as fp:
 
-    def get_members(self):
-        # build global dictionary of member signame: sigfile
-        global genome_lengths
-        with open(f'{out_dir}/fastasplit/{basename}.lengths.txt', 'rt') as fp:
-            genome_lengths = {}
-            for line in fp:
-                name, length = line.rstrip().split(',')
-                genome_lengths[name] = length
+    #def get_member_siglist(self):
+    #    # build global dictionary of member signame: sigfile
+    #    global clusterMembers
+    #    with open(f"os.path.join(out_dir, "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.members.siglist.txt") as fp:
+    #    with open(f'{out_dir}/fas/{basename}.lengths.txt', 'rt') as fp:
+    #        genome_lengths = {}
+    #        for line in fp:
+    #            name, length = line.rstrip().split(',')
+    #            genome_lengths[name] = length
 
     def __call__(self, w):
         global checkpoints
@@ -51,11 +53,12 @@ rule find_founders:
     input: 
         config["siglist"]
     output:
-        founders = os.path.join(out_dir, "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.founders.siglist.txt")
-        members = os.path.join(out_dir, "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.members.siglist.txt")
+        founders = os.path.join(out_dir, "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.founders.siglist.csv")
+        members = os.path.join(out_dir, "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.members.siglist.csv")
     conda:
         "envs/env-sourmash4.0.yml"
     log: os.path.join(logs_dir, "find_founders", "{prefix}.find-founders.log" )
+    benchmark: os.path.join(logs_dir, "find_founders", "{prefix}.find-founders.benchmark" )
     shell:
         """
         python find-founders.py --siglist {input} --threshold {wildcards.maxcontain} \
@@ -79,23 +82,39 @@ rule cluster_sig_to_founders:
         Find best cluster-founder match for a query signature
         """
     input:
+        namecheck=os.path.join(out_dir,".make_spreadsheet.touch"),
         db = rules.find_founders.output.founders,
-        #query = rules.find_founders.output.members
-        query = {name}.sig
+        query = lambda w: sigD[w.name], # dictionary of name :: sigfile
+        #query = os.path.join(sigdir, "{name}.sig")
     output:
         # if doing a single query sig --> all founders, then write single file with info for this sig alone
-        cluster_sig = os.path.join(out_dir, "cluster_info", "{name}.cluster.txt"
+        cluster_match = os.path.join(out_dir, "cluster_info", "{name}.best-founder.txt"
     log: os.path.join(logs_dir, "find_founders", "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.cluster-to-founders.log" )
     benchmark: os.path.join(logs_dir, "find_founders", "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.cluster-to-founders.benchmark")
     shell:
         """
-        python search-maxcontain.py --db {input.db} --query {input.query} -o {output.clusters} \
+        sourmash search --max-containment --db {input.db} --query {input.query} -o {output.clusters} \
                                     --ksize {wildcards.ksize} --moltype {wildcards.alphabet} > {log} 2&>1
         """
-
-        # cluster info = cluster_name, founder_name, membersig_filename, member sig name, max containment / common hashes, etc
         #clusters = os.path.join(out_dir, "clusters", "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.cluster_info.csv")
 
+rule gather_cluster_info:
+    message:
+        """
+        gather cluster match info into a single csv
+        """
+    input:
+        namecheck=os.path.join(out_dir,".make_spreadsheet.touch"),
+        cluster_info=Checkpoint_MakePattern(os.path.join(out_dir, "cluster_info", "{name}.best-founder.txt")) # checkpoint makepattern should get member names
+        founders=rules.find_founders.output.founders,
+    output:
+        os.path.join(out_dir, "{prefix}.cluster-info.csv")
+    run:
+        with open(str(output), "w") as outF:
+        # edit this.  for each member sig, want line of:
+        # cluster_name, founder_name, membersig_filename, member sig name, max containment / common hashes, etc
+            for inF in input.cluster_info:
+                outF.write(str(inF) + "\n")
 
 
 
