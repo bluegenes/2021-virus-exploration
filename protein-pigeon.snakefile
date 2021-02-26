@@ -137,7 +137,7 @@ rule sourmash_sketch_prodigal_input:
     threads: 1
     resources:
         mem_mb=lambda wildcards, attempt: attempt *2000,
-        runtime=120,
+        runtime=20,
     log: os.path.join(logs_dir, "sourmash_sketch_prot_input", "{name}-{genome}.sketch.log")
     benchmark: os.path.join(logs_dir, "sourmash_sketch_prot_input", "{name}-{genome}.sketch.benchmark")
     conda: "envs/sourmash-dev.yml"
