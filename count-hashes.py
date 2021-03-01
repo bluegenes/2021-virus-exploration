@@ -38,6 +38,7 @@ def main(args):
     # load file list of sigs
     sigfiles = sourmash.sourmash_args.load_file_list_of_signatures(args.siglist)
     sigInfoList = []
+    num_sigfiles=0
     for sigF in sigfiles:
         # load sigs from each sigfile
         sigs = sourmash.sourmash_args.load_file_as_signatures(sigF)
@@ -45,7 +46,7 @@ def main(args):
             # get signature information
             name = str(sig)
             genome_len = genome_lengths[name]
-            if n % 10000 == 0:
+            if n !=0 and n % 10000 == 0:
                 print(f"... processing {n}th sig, {name}\n")
             ksize = sig.minhash.ksize
             # first do existing scaled val
@@ -62,7 +63,9 @@ def main(args):
                 # store signature info
                 num_hashes = len(sig.minhash.downsample(scaled=sc).hashes)
                 sigInfoList.append(SigInfo(name=name, ksize=ksize, scaled=sc, num_hashes=num_hashes, genome_length=genome_len))
-        print("total number sigs processed: {n}")
+        num_sigfiles+=1
+        if num_sigfiles % 500 == 0:
+            print(f"total number sigfiles processed: {num_sigfiles}")
 
     # convert signature info to pandas dataframe
     sigInfoDF = pd.DataFrame.from_records(sigInfoList, columns = SigInfo._fields)
