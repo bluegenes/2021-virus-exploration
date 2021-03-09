@@ -1,0 +1,5 @@
+*txt
+*csv
+*.snakemake
+*log
+*gz

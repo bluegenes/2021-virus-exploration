@@ -1,0 +1,33 @@
+# location for all generated files
+#output_dir: output.pigeon1.0-protcluster
+output_dir: output.pigeon1.0-cluster
+
+basename: pigeon1.0
+prefix: pigeon1.0
+
+siglist: "output.protein-pigeon/compare/pigeon1.0.prodigal.siglist.txt"
+
+alphabet_info:
+  #nucleotide:
+  #  ksizes: [21,31,51]
+  #  scaled: [1000]
+  #  maxcontain_threshold: [0.01]
+  protein:
+   # ksizes: [7,8,9,10,11,12]
+    ksizes: [10]
+    scaled: [100]
+    alpha_cmd: "--protein"
+    moltype: "protein"
+    maxcontain_threshold: [0.05]
+  #dayhoff:
+  #  ksizes: [15,16,17,18,19]
+  #  scaled: [100]
+  #  alpha_cmd: "--dayhoff"
+  #  moltype: "dayhoff"
+  #  maxcontain_threshold: [0.05]
+  #hp:
+  #  ksizes: [33,35,37,39,42]
+  #  scaled: [100]
+  #  alpha_cmd: "--hp"
+  #  moltype: "hp"
+  #  maxcontain_threshold: [0.05]
