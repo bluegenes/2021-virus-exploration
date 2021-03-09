@@ -168,11 +168,11 @@ def main(args):
         siglist = siglist[batch_size:]
         founders += new_founders
         members += new_members
-        batch_n+=1
         # cluster all sigs to list of new founders
         if siglist:
             siglist, members = cluster_to_founders(new_founders, siglist, batch_n, pass_n, members)
         rarefaction_info.append(rareInfo(num_founders=len(founders), num_members=len(members)))
+        batch_n+=1
         pass_n +=1
 
 

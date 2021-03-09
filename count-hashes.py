@@ -37,6 +37,7 @@ def main(args):
 
     # load file list of sigs
     sigfiles = sourmash.sourmash_args.load_file_list_of_signatures(args.siglist)
+    total_sigfiles = len(sigfiles)
     sigInfoList = []
     num_sigfiles=0
     for sigF in sigfiles:
@@ -65,7 +66,7 @@ def main(args):
                 sigInfoList.append(SigInfo(name=name, ksize=ksize, scaled=sc, num_hashes=num_hashes, genome_length=genome_len))
         num_sigfiles+=1
         if num_sigfiles % 500 == 0:
-            print(f"total number sigfiles processed: {num_sigfiles}")
+            print(f"...processed {num_sigfiles}/{total_sigfiles} sigfiles")
 
     # convert signature info to pandas dataframe
     sigInfoDF = pd.DataFrame.from_records(sigInfoList, columns = SigInfo._fields)
