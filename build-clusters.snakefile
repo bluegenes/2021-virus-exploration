@@ -115,10 +115,6 @@ rule sourmash_index:
         sourmash index -k {wildcards.ksize} {params.alpha_cmd} --from-file {input.siglist} {output.db} 2> {log}
         """
         
-
-
-
-
 rule cluster_sig_to_founders:
     message:
         """
@@ -135,13 +131,15 @@ rule cluster_sig_to_founders:
     output:
         # if doing a single query sig --> all founders, then write single file with info for this sig alone
         cluster_match = os.path.join(out_dir, "cluster_info", "{name}_x_{prefix}.{alphabet}-k{ksize}.mc{maxcontain}.best-founder.txt"),
+    params:
+        alpha_cmd= lambda w: config["alphabet_info"][w.alphabet]["alpha_cmd"],
     log: os.path.join(logs_dir, "find_founders", "{name}_x_{prefix}.{alphabet}-k{ksize}.mc{maxcontain}.cluster-to-founders.log" )
     benchmark: os.path.join(logs_dir, "find_founders", "{name}_x_{prefix}.{alphabet}-k{ksize}.mc{maxcontain}.cluster-to-founders.benchmark")
     conda: "envs/sourmash-maxcontain.yml"
     shell:
         """
-        sourmash search --max-containment --db {input.db} --query {input.query} -o {output.cluster_match} \
-                        --ksize {wildcards.ksize} --moltype {wildcards.alphabet} > {log} 2&>1
+        sourmash search --max-containment {input.query} {input.db} -o {output.cluster_match} \
+                        --best-only --threshold 0.01 --ksize {wildcards.ksize} {params.alpha_cmd} 2> {log}
         """
         #clusters = os.path.join(out_dir, "clusters", "{prefix}.{alphabet}-{ksize}.mc{maxcontain}.cluster_info.csv")
 
