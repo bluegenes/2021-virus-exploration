@@ -17,6 +17,7 @@ Authors:
 
 This code is under CC0.
 """
+import os
 import sys
 import argparse
 import random
@@ -29,20 +30,22 @@ from sourmash.logging import notify
 
 rareInfo = namedtuple('RarefactionInfo','num_founders, num_members')
 
-def load_sigs_from_list(siglistfiles, moltype, ksize):
+def load_sigs_from_list(siglistfiles, moltype, ksize, sigdir=None):
     # input lists of signatures instead
     sigs = []
     for sl in siglistfiles:
         notify(f'loading from {sl}')
         sigfiles = sourmash.sourmash_args.load_file_list_of_signatures(sl)
-        new_sigs = load_sigs(sigfiles, moltype, ksize, source_type= "input sigfile list")
+        new_sigs = load_sigs(sigfiles, moltype, ksize, source_type= "input sigfile list", sigdir=sigdir)
         notify(f'...got {len(new_sigs)} signatures from {sl} siglist file.')
         sigs+=new_sigs
     return sigs
 
-def load_sigs(sig_sources, moltype, ksize, source_type="input sigfiles"):
+def load_sigs(sig_sources, moltype, ksize, source_type="input sigfiles", sigdir=None):
     siglist=[]
     for filename in sig_sources:
+        if not os.path.exists(filename) and sigdir:
+            filename = os.path.join(sigdir, filename)
         if source_type != "input sigfile list":
             notify(f'loading from {filename}')
         m = 0
@@ -139,9 +142,9 @@ def main(args):
     #load new sigs
     siglist=[]
     if args.signature_sources:
-        siglist = load_sigs(args.signature_sources, args.moltype, args.ksize)
+        siglist = load_sigs(args.signature_sources, args.moltype, args.ksize, sigdir=args.sigdir)
     if args.siglist:
-        siglist+= load_sigs_from_list(args.siglist, args.moltype, args.ksize)
+        siglist+= load_sigs_from_list(args.siglist, args.moltype, args.ksize, sigdir=args.sigdir)
 
     notify(f'loaded {len(siglist)} new signatures total.')
 
@@ -201,6 +204,7 @@ if __name__ == '__main__':
     p.add_argument('--signature_sources', nargs='*',
                    help='signature files, directories, and sourmash databases')
     p.add_argument("--siglist", action="append", help="provide list of signatures to assess")
+    p.add_argument("--sigdir", help="dir to look in for sigs")
     p.add_argument('-k', '--ksize', type=int, default=31)
     p.add_argument('--moltype', default='DNA')
     p.add_argument('--seed', type=int, default=1)
