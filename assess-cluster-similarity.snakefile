@@ -5,7 +5,7 @@ import os
 import re
 import pandas as pd
 
-configfile: "conf.yml"
+configfile: "conf-cluster-similarity.yml"
 basename = "pigeon1.0-vc"
 out_dir = config["output_dir"]
 logs_dir = os.path.join(out_dir, "logs")
@@ -15,28 +15,29 @@ if expt:
 compare_dir = os.path.join(out_dir, "compare" + expt)
 
 # load acc::fasta filenames info
-fasta_fileinfo = config["fasta_info"].set_index("accession", inplace=True)
+fasta_fileinfo = pd.read_csv(config["fasta_info"]).set_index("accession")
 # load compareInfo and turn ;-separated list into python list
-compareInfo = pd.read_csv(config["comparison_info"]).set_index("cluster", inplace=True)
+compareInfo = pd.read_csv(config["comparison_info"]).set_index("cluster")
 compareInfo["cluster_members"] = compareInfo["cluster_members"].str.split(";")
-
 # get correct alphabets, ksizes for comparisons
 alphabet_info = config["alphabet_info"]
 genomic_alphaksizes, protein_alphaksizes = [],[]
 for alpha in alphabet_info:
     ak = expand("{alpha}-k{k}", alpha=alpha, k=alphabet_info[alpha]["ksizes"])
-    genomic_alphaksizes+=ak
     if alpha != "nucleotide":
         protein_alphaksizes+=ak
+    else:
+        #I didn't do translated sigs with pigeon -- nucl should only have nucl sigs
+        genomic_alphaksizes+=ak
 
 rule all:
     input: 
         # fastani
         os.path.join(compare_dir, "fastani", f"{basename}.fastani.csv.gz"),
         # compareM
-        expand(os.path.join(compare_dir, "compareM", "{basename}.{input_type}.compareM.csv.gz"), input_type=["genomic", "protein"]),
+        expand(os.path.join(compare_dir, "compareM", "{basename}.{input_type}.compareM.csv.gz"), input_type=["genomic", "protein"], basename=basename),
         # sourmash
-        expand(os.path.join(compare_dir, "cluster-compare", "{basename}.{input_type}.sourmash-compare.csv.gz"), basename=basename, input_type=["genomic", "protein"]),
+        expand(os.path.join(compare_dir, "cluster-compare", "{basename}.{input_type}.clustercompare.csv.gz"), basename=basename, input_type=["genomic", "protein"]),
 
 
 #####################
@@ -46,10 +47,10 @@ rule all:
 def get_fastani_comparison_genome_files(w):
     compare_accs = compareInfo.at[w.cluster, "cluster_members"]
     anchor = compareInfo.at[w.cluster, "cluster_anchor"]
-    compare_accs.remove(anchor)
     genome_paths = []
     for acc in compare_accs:
-        genome_paths += os.path.abspath(fasta_fileinfo.at[acc, "genome"])
+        if acc != anchor:
+            genome_paths += [os.path.abspath(fasta_fileinfo.at[acc, "genome"])]
     return genome_paths 
 
 
@@ -65,10 +66,10 @@ rule write_genomic_fastani_fastalist:
 def get_fastani_comparison_info(w):
     compare_accs = compareInfo.at[w.cluster, "cluster_members"]
     anchor = compareInfo.at[w.cluster, "cluster_anchor"]
-    compare_accs.remove(anchor)
     genome_paths = []
     for acc in compare_accs:
-        genome_paths += os.path.abspath(fasta_fileinfo.at[acc, "genome"])
+        if acc != anchor:
+            genome_paths += [os.path.abspath(fasta_fileinfo.at[acc, "genome"])]
     anchor_g = os.path.abspath(fasta_fileinfo.at[anchor, "genome"])
     c_filelist = os.path.join(compare_dir, "fastani", f"{w.cluster}", f"{w.cluster}.genomic.fastalist")
     return {"anchor_genome" : anchor_g, "comparison_filelist": c_filelist}
@@ -102,7 +103,7 @@ rule write_fastani_result_csv:
     run:
         with open(str(output), "w") as out:
             for inF in input:
-                comparison_name = os.path.basename(str(inF)).rsplit(".fastani.tsv")
+                comparison_name = os.path.basename(str(inF)).rsplit(".fastani.tsv")[0]
                 out.write(f"{comparison_name},{str(inF)}\n")
 
 localrules: aggregate_fastani_results
@@ -115,9 +116,9 @@ rule aggregate_fastani_results:
     benchmark: os.path.join(logs_dir, "fastani", "{basename}.fastani.aggregate.benchmark")
     shell:
         """
-        python aggregate-taxon-fastani-results.py --fastani-filecsv {input.fastani} \
-                                                  --comparison-info {input.comparison_info} \
-                                                  --output-csv {output} > {log} 2>&1
+        python aggregate-cluster-fastani.py --fastani-filecsv {input.fastani} \
+                                            --comparison-info {input.comparison_info} \
+                                            --output-csv {output} > {log} 2>&1
         """
 
 
@@ -134,7 +135,7 @@ def get_compareM_protein_fastas(w):
 
 rule write_protein_compareM_fastalist:
     input: ancient(get_compareM_protein_fastas)
-    output: os.path.join(compare_dir, "compareM", "{cluster}", "protein", "{basename}.{cluster}.fastalist")
+    output: os.path.join(compare_dir, "compareM", "{cluster}", "protein", "{cluster}.fastalist")
     params:
         outdir = lambda w: os.path.join(compare_dir, "compareM", f"{w.cluster}", "protein")
     run:
@@ -144,7 +145,7 @@ rule write_protein_compareM_fastalist:
 
 rule protein_AAI_via_compareM:
     input:
-        os.path.join(compare_dir, "compareM", "{cluster}", "protein", "{basename}.{cluster}.fastalist")
+        os.path.join(compare_dir, "compareM", "{cluster}", "protein", "{cluster}.fastalist")
     output:
         os.path.join(compare_dir, "compareM", "{cluster}/protein/aai/aai_summary.tsv"),
     params:
@@ -168,13 +169,13 @@ def get_compareM_genome_fastas(w):
     compare_accs = compareInfo.at[w.cluster, "cluster_members"] # includes anchor genome
     genome_paths = []
     for acc in compare_accs:
-        genome_paths += os.path.abspath(fasta_fileinfo.at[acc, "genome"])
+        genome_paths += [os.path.abspath(fasta_fileinfo.at[acc, "genome"])]
     return genome_paths
     
 # note, prodigal cant use gzipped nucl files. not an issue here; see pseudomonas_compare.v2.snakefile for hacky workaround
 rule write_genomic_compareM_fastalist:
     input: ancient(get_compareM_genome_fastas)
-    output: os.path.join(compare_dir, "compareM", "{cluster}", "genomic", "{basename}.{cluster}.fastalist")
+    output: os.path.join(compare_dir, "compareM", "{cluster}", "genomic", "{cluster}.fastalist")
     params:
         outdir = lambda w: os.path.join(compare_dir, "compareM", f"{w.cluster}", "genomic")
     group: "nuclcompareM"
@@ -185,7 +186,7 @@ rule write_genomic_compareM_fastalist:
 
 rule nucl_AAI_via_compareM:
     input:
-        os.path.join(compare_dir, "compareM", "{cluster}", "genomic", "{basename}.{cluster}.fastalist")
+        os.path.join(compare_dir, "compareM", "{cluster}", "genomic", "{cluster}.fastalist")
     output:
         os.path.join(compare_dir, "compareM", "{cluster}/genomic/aai/aai_summary.tsv"),
     params:
@@ -203,7 +204,6 @@ rule nucl_AAI_via_compareM:
     shell:
         """
         comparem aai_wf --cpus {threads} {params.proteins_cmd} --file_ext {params.file_ext:q}  --sensitive {input} {params.outdir} > {log} 2>&1
-        rm -rf {params.fna_filepath}
         """
 
 ## aggreagate compareM results
@@ -218,7 +218,7 @@ rule compile_compareM_resultfiles:
     run:
         with open(str(output), "w") as out:
             for inF in input:
-                comparison_name = os.path.basename(str(inF)).rsplit(".fastani.tsv")
+                comparison_name = os.path.basename(str(inF).rsplit(f"/{wildcards.input_type}")[0])
                 out.write(f"{comparison_name},{str(inF)}\n")
 
 localrules: aggregate_compareM_results
@@ -231,9 +231,9 @@ rule aggregate_compareM_results:
     benchmark: os.path.join(logs_dir, "compareM", "{basename}.{input_type}.compareM.aggregate.benchmark")
     shell:
         """
-        python aggregate-cluster-compareM-results.py --comparem-tsv-filecsv {input.compareM} \
-                                                   --comparison-info {input.comparison_info} \
-                                                   --output-csv {output} > {log} 2>&1
+        python aggregate-cluster-compareM.py --comparem-tsv-filecsv {input.compareM} \
+                                             --comparison-info {input.comparison_info} \
+                                             --output-csv {output} > {log} 2>&1
         """
 
 
@@ -242,12 +242,12 @@ rule aggregate_compareM_results:
 ######################
 ## compare to anchor sigs ##
 alpha_to_moltype = {"nucleotide": "DNA", "protein": "protein", "dayhoff": "dayhoff", "hp": "hp"}
-rule taxon_compare_genomic:
+rule cluster_compare_genomic:
     input:
         comparison_csv=config["comparison_info"],
         sigfile=config["genome_sigfile"]
     output:
-        csv=os.path.join(compare_dir, "cluster-compare/{input_type}", "{basename}.{alphabet}-k{ksize}.clustercompare.csv.gz"),
+        csv=os.path.join(compare_dir, "cluster-compare/genomic", "{basename}.{alphabet}-k{ksize}.clustercompare.csv.gz"),
     params:
         sigdir = os.path.join(out_dir, "signatures"),
         moltype = lambda w: alpha_to_moltype[w.alphabet],
@@ -256,14 +256,40 @@ rule taxon_compare_genomic:
     resources:
         mem_mb=lambda wildcards, attempt: attempt *10000,
         runtime=1200,
-    log: os.path.join(logs_dir, "cluster-compare/{input_type}", "{basename}.{alphabet}-k{ksize}.clustercompare.log")
-    benchmark: os.path.join(logs_dir, "cluster-compare/{input_type}", "{basename}.{alphabet}-k{ksize}.clustercompare.benchmark")
+    log: os.path.join(logs_dir, "cluster-compare/genomic", "{basename}.{alphabet}-k{ksize}.clustercompare.log")
+    benchmark: os.path.join(logs_dir, "cluster-compare/genomic", "{basename}.{alphabet}-k{ksize}.clustercompare.benchmark")
     conda: "/home/ntpierce/2020-distance-compare/envs/pathcompare.yml"
     shell:
         """
         python cluster-compare-singleton.py --comparison-csv {input.comparison_csv} \
         --alphabet {params.moltype} --ksize {wildcards.ksize} --sigdir {params.sigdir} \
         --sigfiles {input.sigfile} --output-csv {output.csv} > {log} 2>&1
+        """
+
+rule cluster_compare_protein:
+    input:
+        comparison_csv=config["comparison_info"],
+        siglist=config["protein_siglist"]
+    output:
+        csv=os.path.join(compare_dir, "cluster-compare/protein", "{basename}.{alphabet}-k{ksize}.clustercompare.csv.gz"),
+    params:
+        sigdir = config.get("protein_sigdir", "./"),
+        sigext= config.get("protein_sigext", ""),
+        sigprefix = config.get("protein_sigprefix", ""),
+        moltype = lambda w: alpha_to_moltype[w.alphabet],
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards, attempt: attempt *10000,
+        runtime=1200,
+    log: os.path.join(logs_dir, "cluster-compare/protein", "{basename}.{alphabet}-k{ksize}.clustercompare.log")
+    benchmark: os.path.join(logs_dir, "cluster-compare/protein", "{basename}.{alphabet}-k{ksize}.clustercompare.benchmark")
+    conda: "/home/ntpierce/2020-distance-compare/envs/pathcompare.yml"
+    shell:
+        """
+        python cluster-compare.py --comparison-csv {input.comparison_csv} \
+        --alphabet {params.moltype} --ksize {wildcards.ksize} --sigdir {params.sigdir} \
+        --sig-extension {params.sigext:q} --sig-prefix {params.sigprefix:q} \
+        --siglist {input.siglist} --output-csv {output.csv} > {log} 2>&1
         """
 
 localrules: aggregate_genomic_clustercompare

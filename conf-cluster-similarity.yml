@@ -1,0 +1,36 @@
+# location for all generated files
+output_dir: output.pigeon1.0-vContact-cluster-similarity
+
+#comparison_info: /home/ntpierce/2021-virus-exploration/pigeon1.0.vContact.clustering.anchors.csv
+comparison_info: /home/ntpierce/2021-virus-exploration/pigeon1.0.vContact.clustering.anchors.head101.csv
+
+# info to reconstruct genome info
+fasta_info: "/home/ntpierce/2021-virus-exploration/pigeon1.0.accession-to-filenames.csv"
+protein_siglist: "/home/ntpierce/2021-virus-exploration/output.protein-pigeon/compare/pigeon1.0.prodigal.siglist.txt"
+protein_sigext: ".prodigal.sig"
+protein_sigprefix: "pigeon1.0-"
+protein_sigdir: "output.protein-pigeon/prodigal/signatures"
+#genome_siglist: "/group/ctbrowngrp/virus-references/pigeon/dna-input/pigeon1.0.signatures.txt"
+genome_sigfile: "/group/ctbrowngrp/virus-references/pigeon/dna-input/signatures/pigeon1.0.sig"
+
+alphabet_info:
+  nucleotide:
+    ksizes: [21,31,51]
+    scaled: [100]
+    alpha_cmd: "--dna"
+    moltype: "dna"
+  protein:
+    ksizes: [7,8,9,10,11,12]
+    scaled: [100]
+    alpha_cmd: "--protein"
+    moltype: "protein"
+  dayhoff:
+    ksizes: [15,16,17,18,19]
+    scaled: [100]
+    alpha_cmd: "--dayhoff"
+    moltype: "dayhoff"
+  hp:
+    ksizes: [33,35,37,39,42]
+    scaled: [100]
+    alpha_cmd: "--hp"
+    moltype: "hp"
