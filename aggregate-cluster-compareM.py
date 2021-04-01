@@ -33,6 +33,8 @@ def main(args):
 
         # now loop through comparison accessions
         compare_accs = compareInfo.at[cluster, "cluster_members"]
+        if anchor_acc in compare_accs:
+            compare_accs.remove(anchor_acc)
         for compare_acc in compare_accs:
             comparison_name = f"{anchor_acc}_x_{compare_acc}"
             # pull out anchor x comparison (no guarantee on which column they'll be in)
